@@ -144,16 +144,15 @@ const connectDB = async () => {
     console.log('✅ Connected to MongoDB successfully!');
     
     // Start server with optimized settings
-    if (!process.env.VERCEL) {
-      const server = app.listen(PORT, () => {
-        console.log(`🚀 Server is running on port ${PORT}`);
-        console.log(`📊 Optimized for 1500+ concurrent users`);
-      });
-      // Optimize server for high load
-      server.maxConnections = 1000;
-      server.keepAliveTimeout = 65000;
-      server.headersTimeout = 66000;
-    }
+    const server = app.listen(PORT, () => {
+      console.log(`🚀 Server is running on port ${PORT}`);
+      console.log(`📊 Optimized for 1500+ concurrent users`);
+    });
+    
+    // Optional server tuning (you can keep or remove)
+    server.maxConnections = 1000;
+    server.keepAliveTimeout = 65000;
+    server.headersTimeout = 66000;
     
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
