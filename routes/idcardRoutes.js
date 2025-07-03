@@ -105,23 +105,30 @@ router.post('/send-otp', async (req, res) => {
 
 // Search without OTP verification
 router.post('/search', async (req, res) => {
+  console.log('DEBUG: /api/idcards/search request body:', req.body);
   try {
     const { playerId, email } = req.body;
-    if (!playerId || !email) return res.status(400).json({ error: 'Player ID and email required' });
+    if (!playerId || !email) {
+      console.error('DEBUG: Missing playerId or email');
+      return res.status(400).json({ error: 'Player ID and email required' });
+    }
 
     let player;
     try {
       player = await Player.findOne({ playerId, email });
     } catch (dbErr) {
-      console.error('Database error:', dbErr);
+      console.error('Database error in /search:', dbErr);
       return res.status(500).json({ error: 'Database error', details: dbErr.message, stack: dbErr.stack });
     }
-    if (!player) return res.status(404).json({ error: 'Player not found or email does not match' });
+    if (!player) {
+      console.error('DEBUG: Player not found for', playerId, email);
+      return res.status(404).json({ error: 'Player not found or email does not match' });
+    }
 
     // Return all player details
     res.json({ player });
   } catch (err) {
-    console.error('Search error:', err);
+    console.error('Search error in /search:', err);
     res.status(500).json({ error: 'Internal server error', details: err.message, stack: err.stack });
   }
 });
