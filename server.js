@@ -1,7 +1,7 @@
 // require('dotenv').config();
 // or, if using ES modules:
-import dotenv from 'dotenv';
-dotenv.config(path);
+// import dotenv from 'dotenv';
+// dotenv.config(path);
 console.log('DEBUG: MONGODB_URI from .env is:', process.env.MONGODB_URI);
 process.env.MONGODB_URI = 'mongodb+srv://gujaratparasports:paraSports07@parasports.sc63qgr.mongodb.net/?retryWrites=true&w=majority&appName=ParaSports';
 

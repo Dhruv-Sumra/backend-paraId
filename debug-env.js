@@ -1,7 +1,7 @@
-import dotenv from 'dotenv';
+// import dotenv from 'dotenv';
 
-// Load environment variables
-dotenv.config();
+// // Load environment variables
+// dotenv.config();
 
 console.log('=== Environment Variables Debug ===');
 console.log('SENDER_EMAIL:', process.env.SENDER_EMAIL);
