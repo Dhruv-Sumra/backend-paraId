@@ -67,13 +67,13 @@ export const sendIdCardEmail = async (player, idCardPath) => {
       to: player.email,
       subject: 'Your Para Sports ID Card - તમારું પેરા સ્પોર્ટ્સ આઈડી કાર્ડ',
       html: `
-        <div style="font-family: Arial, sans-serif; width: 100%; max-width: 100%; margin: 0 auto; padding: 20px; background: #f5f5f5; box-sizing: border-box;">
+        <div style="font-family: Arial, sans-serif; width: 100%; max-width: 100%; margin: 0 auto; padding: 0; background: #f5f5f5; box-sizing: border-box;">
           <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 40px; text-align: center; border-radius: 15px 15px 0 0; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
             <h1 style="margin: 0; font-size: 36px; font-weight: bold;">Para Sports ID Card</h1>
             <p style="margin: 15px 0 0 0; font-size: 20px; opacity: 0.9;">પેરા સ્પોર્ટ્સ આઈડી કાર્ડ</p>
           </div>
           
-          <div style="background: white; padding: 40px; border-radius: 0 0 15px 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+          <div style="background: white; padding: 3px; border-radius: 0 0 15px 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
             <h2 style="color: #1e3c72; margin-top: 0; font-size: 28px; text-align: center;">Hello ${player.firstName}!</h2>
             
             <div style="background: #f8f9fa; padding: 30px; border-radius: 12px; margin: 30px 0; border-left: 6px solid #1e3c72; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
@@ -108,8 +108,6 @@ export const sendIdCardEmail = async (player, idCardPath) => {
                   <strong>મહત્વની નોંધ:</strong>
                 </p>
                 <ul style="margin-left: 25px; margin-bottom: 20px;">
-                  <li>આ આઈડી કાર્ડ તમારી સાથે રાખવું જરૂરી છે</li>
-                  <li>કોઈપણ પેરા સ્પોર્ટ્સ ઇવેન્ટમાં આ કાર્ડ જરૂરી છે</li>
                   <li>કાર્ડ પરનો QR કોડ તમારી સંપૂર્ણ માહિતી ધરાવે છે</li>
                   <li>કોઈપણ માહિતી અપડેટ કરવા માટે સંપર્ક કરો</li>
                 </ul>

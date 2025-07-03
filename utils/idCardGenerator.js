@@ -1,387 +1,229 @@
 import PDFDocument from 'pdfkit';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import fs from 'fs';
 import QRCode from 'qrcode';
-// import { getRandomPlayer } from '../generateFakeData.js';   
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure directories exist
-const idCardsDir = path.join(__dirname, '../idcards');
-if (!fs.existsSync(idCardsDir)) {
-  fs.mkdirSync(idCardsDir, { recursive: true });
+// Asset paths
+const IDCARDS_DIR = path.join(__dirname, '../idcards');
+const LOGO1_PATH = path.join(__dirname, 'logo1.png');
+const LOGO2_PATH = path.join(__dirname, 'logo2.png');
+const GRADITEXT_PATH = path.join(__dirname, 'graditext---.png');
+const GUJARATI_FONT_PATH = path.join(__dirname, '../fonts/NotoSansGujarati-Regular.ttf');
+
+if (!fs.existsSync(IDCARDS_DIR)) {
+  fs.mkdirSync(IDCARDS_DIR, { recursive: true });
 }
 
-// Path to a Unicode font that supports Gujarati (you'll need to provide this)
-const unicodeFontPath = path.join(__dirname, '../fonts/NotoSansGujarati-Regular.ttf');
-
-export const generateIdCard = async (player) => {
+export async function generateIdCard(player) {
   try {
-    console.log(`Starting ID card generation for player: ${player.playerId}`);
-    
-    // Create PDF document (first page is created automatically)
-    const doc = new PDFDocument({
-      size: [650, 400],
-      margins: 0,
-      autoFirstPage: true // default is true
-    });
-    
+    // Format address
+    const addressString = player.address
+      ? [player.address.street, player.address.city, player.address.state, player.address.postalCode].filter(Boolean).join(', ')
+      : '';
+    // Prepare all details for QR code
+    const qrData = {
+      playerId: player.playerId,
+      name: player.firstName + ' ' + (player.lastName || ''),
+      gender: player.gender,
+      primarySport: player.primarySport,
+      dateOfBirth: player.dateOfBirth,
+      passportNumber: player.passportNumber,
+      address: addressString,
+      coachName: player.coachName,
+      coachContact: player.coachContact && player.coachContact.phone ? player.coachContact.phone : player.coachContact || '',
+      emergencyName: player.emergencyContact && player.emergencyContact.name ? player.emergencyContact.name : '',
+      emergencyContact: player.emergencyContact && player.emergencyContact.phone ? player.emergencyContact.phone : player.emergencyContact || ''
+    };
+    const qrString = JSON.stringify(qrData, null, 2); // Pretty print for readability
+    const qrBuffer = await QRCode.toBuffer(qrString);
+    // Create PDF
+    const doc = new PDFDocument({ size: [650, 400], margins: 0, autoFirstPage: true });
     // Register Unicode font if available
-    let unicodeFontAvailable = false;
-    if (fs.existsSync(unicodeFontPath)) {
-      try {
-        doc.registerFont('Unicode', unicodeFontPath);
-        unicodeFontAvailable = true;
-      } catch (e) {
-        console.error('Error registering Unicode font:', e);
-      }
+    if (fs.existsSync(GUJARATI_FONT_PATH)) {
+      try { doc.registerFont('Unicode', GUJARATI_FONT_PATH); } catch {}
     }
-    
-    // Generate filename
+    // Output file
     const idCardFilename = `idcard_${player.playerId}_${Date.now()}.pdf`;
-    const idCardPath = path.join(idCardsDir, idCardFilename);
-    
-    // Pipe to file
+    const idCardPath = path.join(IDCARDS_DIR, idCardFilename);
     const stream = fs.createWriteStream(idCardPath);
     doc.pipe(stream);
-    
-    // Draw front on the first page
-    drawFrontSide(doc, player, unicodeFontAvailable);
-    
-    // Add a second page for the back (only once)
+    // Draw front and back
+    drawFrontSide(doc, player, addressString);
     doc.addPage();
-    await drawBackSide(doc, player, unicodeFontAvailable);
-    
-    // Finalize the document
+    await drawBackSide(doc, player, qrBuffer);
     doc.end();
-    
-    // Wait for the stream to finish
     await new Promise((resolve, reject) => {
       stream.on('finish', resolve);
       stream.on('error', reject);
     });
-    
-    console.log(`ID card generated successfully: ${idCardFilename}`);
-    
-    // Return relative path for database storage
     return `/idcards/${idCardFilename}`;
-    
   } catch (error) {
-    console.error('Error generating ID card:', error);
     throw new Error(`Failed to generate ID card: ${error.message}`);
   }
-};
+}
 
-function drawFrontSide(doc, player, unicodeFontAvailable) {
-  // Smooth gradient from light orange to light blue
-  const gradient = doc.linearGradient(0, 0, 650, 400);
-  gradient.stop(0, '#FFE4B5');   // Light orange
-  gradient.stop(1, '#B0E0E6');   // Light blue
-  doc.save();
-  doc.opacity(0.85);
-  doc.roundedRect(0, 0, 650, 400, 20).fill(gradient);
-  doc.opacity(1);
-  doc.restore();
-
-  // Title section with logos
-  const logoPath = path.join(__dirname, 'logo1.png');
-  const logoPath2 = path.join(__dirname, 'logo2.png');
-  const logoSize = 60;
-  const logoHeight = 80;
-  const logoMargin = 24;
-  const titleY = 18;
+function drawFrontSide(doc, player, addressString) {
+  const CARD_W = 650, CARD_H = 400;
+  const LOGO_SIZE = 60, LOGO_MARGIN = 24, TITLE_Y = 18;
+  // --- Background gradient ---
+  const gradient = doc.linearGradient(0, 0, CARD_W, CARD_H);
+  gradient.stop(0, '#FFE4B5'); gradient.stop(1, '#B0E0E6');
+  doc.save(); doc.opacity(0.85);
+  doc.roundedRect(0, 0, CARD_W, CARD_H, 20).fill(gradient);
+  doc.opacity(1); doc.restore();
+  // --- Centered watermark logo ---
   try {
-    if (fs.existsSync(logoPath)) {
-      doc.image(logoPath, logoMargin, titleY, { width: logoSize, height: logoSize });
-    } else {
-      console.error('Left logo not found:', logoPath);
+    if (fs.existsSync(LOGO1_PATH)) {
+      doc.save(); doc.opacity(0.13);
+      doc.image(LOGO1_PATH, (CARD_W-400)/2, (CARD_H-270)/2, { width: 400, height: 270 });
+      doc.opacity(0.13); doc.restore();
     }
-    if (fs.existsSync(logoPath2)) {
-      doc.image(logoPath2, 650 - logoMargin - logoSize, titleY, { width: logoSize, height: logoHeight });
-    } else {
-      console.error('Right logo not found:', logoPath2);
-    }
-  } catch (e) { console.error('Logo rendering error:', e); }
-
-  const titleX = logoMargin + logoSize;
-  const titleWidth = 650 - 2 * (logoMargin + logoSize);
+  } catch {}
+  // --- Top logos ---
+  try {
+    if (fs.existsSync(LOGO1_PATH)) doc.image(LOGO1_PATH, LOGO_MARGIN, TITLE_Y, { width: LOGO_SIZE, height: LOGO_SIZE });
+    if (fs.existsSync(LOGO2_PATH)) doc.image(LOGO2_PATH, CARD_W - LOGO_MARGIN - LOGO_SIZE, TITLE_Y, { width: LOGO_SIZE, height: 80 });
+  } catch {}
+  // --- Title ---
+  const titleX = LOGO_MARGIN + LOGO_SIZE, titleW = CARD_W - 2 * (LOGO_MARGIN + LOGO_SIZE);
   doc.font('Helvetica-Bold').fontSize(29).fill('#191970')
-    .text('PARA SPORTS ASSOCIATION OF GUJARAT', titleX + 5, titleY + 7, { width: titleWidth, align: 'center' });
-
-  // --- Profile Photo and Info Section ---
-  // Center the profile photo vertically on the left
+    .text('PARA SPORTS ASSOCIATION OF GUJARAT', titleX + 5, TITLE_Y + 7, { width: titleW, align: 'center' });
+  // --- Profile photo on left, vertically centered with info fields ---
   const photoSize = 130;
   const photoX = 40;
-  const photoY = (400 - photoSize) / 2;
+  const photoY = 130;
   doc.save();
   doc.roundedRect(photoX, photoY, photoSize, photoSize, 16).clip();
   try {
     if (player.profilePhoto) {
-      // Remove leading slash if present
       let photoPath = player.profilePhoto.startsWith('/') ? player.profilePhoto.slice(1) : player.profilePhoto;
-      // If path is relative to uploads, resolve from project root
-      const absPhotoPath = path.isAbsolute(photoPath)
-        ? photoPath
-        : path.join(__dirname, '../', photoPath);
+      const absPhotoPath = path.isAbsolute(photoPath) ? photoPath : path.join(__dirname, '../', photoPath);
       if (fs.existsSync(absPhotoPath)) {
         doc.image(absPhotoPath, photoX, photoY, { width: photoSize, height: photoSize });
       } else {
-        // fallback to gray box
         doc.rect(photoX, photoY, photoSize, photoSize).fill('#cccccc');
       }
     } else {
       doc.rect(photoX, photoY, photoSize, photoSize).fill('#cccccc');
     }
-  } catch (e) {
-    doc.rect(photoX, photoY, photoSize, photoSize).fill('#cccccc');
-  }
+  } catch { doc.rect(photoX, photoY, photoSize, photoSize).fill('#cccccc'); }
   doc.restore();
-
-  // Arrange details in two columns for better use of space
-  const infoStartY = photoY;
-  const labelColor = '#1976D2';
-  const valueColor = '#111111';
-  const labelFont = 'Helvetica-Bold';
-  const valueFont = 'Helvetica';
-  const labelSize = 13;
-  const valueSize = 13;
-  const col1X = photoX + photoSize + 30;
-  const col2X = col1X + 220;
-  const rowHeight = 38;
-  let yRow = infoStartY;
-
-  // Split fields for two columns
-  const profileFields = [
-    ['Name', player.firstName + ' ' + player.lastName],
-    ['DOB', player.dateOfBirth ? formatDate(player.dateOfBirth) : ''],
-    ['Gender', player.gender || ''],
-    ['Passport Number', player.passportNumber || ''],
-    ['Primary Sport', player.primarySport || ''],
-    ['Address', `${player.address?.street || ''}, ${player.address?.city || ''}, ${player.address?.state || ''}, ${player.address?.postalCode || ''}`],
-  ];
-  
-  // Handle fields with special layout
-  for (let i = 0; i < profileFields.length; i++) {
-    const [label, value] = profileFields[i];
-    
-    // Special handling for Address field - make it span full width
-    if (label === 'Address') {
-      doc.font(labelFont).fontSize(labelSize).fill(labelColor)
-        .text(label + ':', col1X, yRow, { width: 110, align: 'left' });
-      doc.font(valueFont).fontSize(valueSize).fill(valueColor)
-        .text(value, col1X + 115, yRow, { width: 300, align: 'left' });
-      yRow += rowHeight;
-      continue;
-    }
-    
-    // For other fields, use two-column layout
-    if (i % 2 === 0) {
-      // Left column
-      doc.font(labelFont).fontSize(labelSize).fill(labelColor)
-        .text(label + ':', col1X, yRow, { width: 110, align: 'left' });
-      doc.font(valueFont).fontSize(valueSize).fill(valueColor)
-        .text(value, col1X + 115, yRow, { width: 90, align: 'left' });
-      
-      // Right column (if next field exists and is not Address)
-      if (i + 1 < profileFields.length && profileFields[i + 1][0] !== 'Address') {
-        const [label2, value2] = profileFields[i + 1];
-        doc.font(labelFont).fontSize(labelSize).fill(labelColor)
-          .text(label2 + ':', col2X, yRow, { width: 110, align: 'left' });
-        doc.font(valueFont).fontSize(valueSize).fill(valueColor)
-          .text(value2, col2X + 115, yRow, { width: 90, align: 'left' });
-        i++; // Skip the next field since we've already processed it
-      }
-      yRow += rowHeight;
-    }
-  }
-
-  // Player ID number above Gujarati footer, centered
-  const playerIdText = player.playerId || 'PS000000';
-  // Add spaces between characters for better readability
-  const spacedPlayerId = playerIdText.split('').join(' ');
-  
-  doc.font('Helvetica-Bold').fontSize(30).fill('#000000')
-    .text(spacedPlayerId, 0, 320, { width: 650, align: 'center' });
-
-  // Gujarati footer at the bottom, centered
-  const footerGradient = doc.linearGradient(0, 370, 650, 400);
-  footerGradient.stop(0, '#FF8C00'); // Orange
-  footerGradient.stop(1, '#000080'); // Dark blue
+  // --- Info fields layout ---
+  const infoStartY = 110;
+  const labelColor = '#1976D2', valueColor = '#111111', labelFont = 'Helvetica-Bold', valueFont = 'Helvetica', labelSize = 14, valueSize = 14;
+  let y = infoStartY;
+  const rowGap = 12;
+  const col1X = photoX + photoSize + 20;
+  const col2X = col1X + 210 + 70;
+  // Name
+  doc.font(labelFont).fontSize(labelSize).fill(labelColor).text('Name:', col1X, y, { width: 90 });
+  doc.font(valueFont).fontSize(valueSize).fill(valueColor).text(player.firstName ? player.firstName + ' ' + (player.lastName || '') : '', col1X + 95, y, { width: 160 });
+  // Gender
+  doc.font(labelFont).fontSize(labelSize).fill(labelColor).text('Gender:', col2X, y, { width: 65 });
+  doc.font(valueFont).fontSize(valueSize).fill(valueColor).text(player.gender || '', col2X + 75, y, { width: 90 });
+  y += 28 + rowGap;
+  // Primary Sport
+  doc.font(labelFont).fontSize(labelSize).fill(labelColor).text('Primary Sport:', col1X, y, { width: 110 });
+  doc.font(valueFont).fontSize(valueSize).fill(valueColor).text(player.primarySport || '', col1X + 115, y, { width: 140 });
+  // DOB
+  doc.font(labelFont).fontSize(labelSize).fill(labelColor).text('DOB:', col2X, y, { width: 65 });
+  doc.font(valueFont).fontSize(valueSize).fill(valueColor).text(player.dateOfBirth ? formatDate(player.dateOfBirth) : '', col2X + 75, y, { width: 90 });
+  y += 28 + rowGap;
+  // Passport Number
+  doc.font(labelFont).fontSize(labelSize).fill(labelColor).text('Passport Number:', col1X, y, { width: 130 });
+  doc.font(valueFont).fontSize(valueSize).fill(valueColor).text(player.passportNumber || '', col1X + 135, y, { width: 120 });
+  y += 28 + rowGap;
+  // Address (wider)
+  doc.font(labelFont).fontSize(labelSize).fill(labelColor).text('Address:', col1X, y, { width: 90 });
+  doc.font(valueFont).fontSize(valueSize).fill(valueColor).text(addressString, col1X + 95, y, { width: 350 });
+  y += 28 + rowGap;
+  // --- graditext image at bottom center ---
   try {
-    if (unicodeFontAvailable) {
-      doc.font('Unicode').fontSize(32).fill(footerGradient)
-        .text('મારી ડિજિટલ ઓળખ', 0, 350, { width: 650, align: 'center' });
-    } else {
-      doc.font('Helvetica').fontSize(32).fill(footerGradient)
-        .text('મારી ડિજિટલ ઓળખ', 0, 350, { width: 650, align: 'center' });
+    if (fs.existsSync(GRADITEXT_PATH)) {
+      const graditextWidth = 460;
+      doc.image(GRADITEXT_PATH, 100, 280, { width: graditextWidth });
     }
-  } catch (e) { console.error('Unicode font rendering error:', e); }
-
-  // Add faded background logo (watermark)
-  try {
-    const bgLogoPath = path.join(__dirname, 'logo1.png');
-    if (fs.existsSync(bgLogoPath)) {
-      doc.save();
-      doc.opacity(0.10);
-      doc.image(bgLogoPath, 150, 80, { width: 350, align: 'center' });
-      doc.opacity(1);
-      doc.restore();
-    }
-  } catch (e) { /* ignore bg logo errors */ }
+  } catch {}
+  // --- Large spaced ID number ---
+  const spacedPlayerId = (player.playerId || '').split('').join(' ');
+  doc.fontSize(35).font('Helvetica-Bold').fill('#111111')
+    .text(spacedPlayerId, 0, 310, { align: 'center', width: CARD_W, height: 40 });
 }
 
-async function drawBackSide(doc, player, unicodeFontAvailable) {
-  // Create gradient background from light orange to light blue with rounded corners, with reduced opacity
-  const gradient = doc.linearGradient(0, 0, 650, 400);
-  gradient.stop(0, '#FFE4B5');   // Light orange
-  gradient.stop(1, '#B0E0E6');   // Light blue
-  doc.save();
-  doc.opacity(0.85);
-  doc.roundedRect(0, 0, 650, 400, 20).fill(gradient);
-  doc.opacity(1);
-  doc.restore();
-
-  // Title section with logos (same as front)
-  const logoPath = path.join(__dirname, 'logo1.png');
-  const logoPath2 = path.join(__dirname, 'logo2.png');
-  const logoSize = 60;
-  const logoHeight = 80;
-  const logoMargin = 24;
-  const titleY = 18;
+async function drawBackSide(doc, player, qrBuffer) {
+  const CARD_W = 650, CARD_H = 400;
+  const LOGO_SIZE = 60, LOGO_MARGIN = 24, TITLE_Y = 18;
+  // --- Background gradient ---
+  const gradient = doc.linearGradient(0, 0, CARD_W, CARD_H);
+  gradient.stop(0, '#FFE4B5'); gradient.stop(1, '#B0E0E6');
+  doc.save(); doc.opacity(0.85);
+  doc.roundedRect(0, 0, CARD_W, CARD_H, 20).fill(gradient);
+  doc.opacity(1); doc.restore();
+  // --- Centered watermark logo ---
   try {
-    if (fs.existsSync(logoPath)) {
-      doc.image(logoPath, logoMargin, titleY, { width: logoSize, height: logoSize });
-    } else {
-      console.error('Left logo not found:', logoPath);
+    if (fs.existsSync(LOGO1_PATH)) {
+      doc.save(); doc.opacity(0.13);
+      doc.image(LOGO1_PATH, (CARD_W-400)/2, (CARD_H-270)/2, { width: 400, height: 270 });
+      doc.opacity(1); doc.restore();
     }
-    if (fs.existsSync(logoPath2)) {
-      doc.image(logoPath2, 650 - logoMargin - logoSize, titleY, { width: logoSize, height: logoHeight });
-    } else {
-      console.error('Right logo not found:', logoPath2);
-    }
-  } catch (e) { console.error('Logo rendering error:', e); }
-
-  // Center the title between the logos
-  const titleX = logoMargin + logoSize;
-  const titleWidth = 650 - 2 * (logoMargin + logoSize);
+  } catch {}
+  // --- Top logos ---
+  try {
+    if (fs.existsSync(LOGO1_PATH)) doc.image(LOGO1_PATH, LOGO_MARGIN, TITLE_Y, { width: LOGO_SIZE, height: LOGO_SIZE });
+    if (fs.existsSync(LOGO2_PATH)) doc.image(LOGO2_PATH, CARD_W - LOGO_MARGIN - LOGO_SIZE, TITLE_Y, { width: LOGO_SIZE, height: 80 });
+  } catch {}
+  // --- Title ---
+  const titleX = LOGO_MARGIN + LOGO_SIZE, titleW = CARD_W - 2 * (LOGO_MARGIN + LOGO_SIZE);
   doc.font('Helvetica-Bold').fontSize(29).fill('#191970')
-    .text('PARA SPORTS ASSOCIATION OF GUJARAT', titleX + 5, 25 , { width: titleWidth, align: 'center' });
-
-  // Arrange back details in a single column (left side)
-  const sectionX = 30, sectionY = 160;
-  let y = sectionY;
-  const labelColorB = '#1976D2';
-  const valueColorB = '#111111';
-  const labelFontB = 'Helvetica-Bold';
-  const valueFontB = 'Helvetica';
-  const labelSizeB = 13;
-  const valueSizeB = 13;
-  const rowHeightB = 38;
-
-  const backFields = [
-    ['Coach Name', player.coachName || ''],
-    ['Coach Contact', player.coachContact || ''],
-    ['Emergency Name', player.emergencyContact?.name || ''],
-    ['Emergency Phone', player.emergencyContact?.phone || ''],
-  ];
-  for (const [label, value] of backFields) {
-    doc.font(labelFontB).fontSize(labelSizeB).fill(labelColorB)
-      .text(label + ':', sectionX, y, { width: 120, align: 'left' });
-    doc.font(valueFontB).fontSize(valueSizeB).fill(valueColorB)
-      .text(value, sectionX + 130, y, { width: 300, align: 'left' });
-    y += rowHeightB;
-  }
-
-  // Generate QR code with all player details as plain text for note app
+    .text('PARA SPORTS ASSOCIATION OF GUJARAT', titleX + 5, TITLE_Y + 7, { width: titleW, align: 'center' });
+  // --- QR code (right) ---
+  const qrSize = 120, qrX = CARD_W - qrSize - 40, qrY = 120;
+  doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
+  // --- Info fields (coach/emergency) on left ---
+  const infoStartY = 120;
+  const labelColor = '#1976D2', valueColor = '#111111', labelFont = 'Helvetica-Bold', valueFont = 'Helvetica', labelSize = 13, valueSize = 13;
+  let y = infoStartY;
+  const rowGap = 14;
+  const leftMargin = 60;
+  // Coach Name
+  doc.font(labelFont).fontSize(labelSize).fill(labelColor).text('Coach Name:', leftMargin, y, { width: 120 });
+  doc.font(valueFont).fontSize(valueSize).fill(valueColor).text(player.coachName || '', leftMargin + 125, y, { width: 180 });
+  y += 24 + rowGap;
+  // Coach Contact
+  doc.font(labelFont).fontSize(labelSize).fill(labelColor).text('Coach Contact:', leftMargin, y, { width: 120 });
+  doc.font(valueFont).fontSize(valueSize).fill(valueColor).text(player.coachContact && player.coachContact.phone ? player.coachContact.phone : player.coachContact || '', leftMargin + 125, y, { width: 180 });
+  y += 24 + rowGap;
+  // Emergency Name
+  doc.font(labelFont).fontSize(labelSize).fill(labelColor).text('Emergency Name:', leftMargin, y, { width: 120 });
+  doc.font(valueFont).fontSize(valueSize).fill(valueColor).text(player.emergencyContact && player.emergencyContact.name ? player.emergencyContact.name : '', leftMargin + 125, y, { width: 180 });
+  y += 24 + rowGap;
+  // Emergency Contact
+  doc.font(labelFont).fontSize(labelSize).fill(labelColor).text('Emergency Contact:', leftMargin, y, { width: 120 });
+  doc.font(valueFont).fontSize(valueSize).fill(valueColor).text(player.emergencyContact && player.emergencyContact.phone ? player.emergencyContact.phone : player.emergencyContact || '', leftMargin + 125, y, { width: 180 });
+  y += 24 + rowGap;
+  // --- graditext image at bottom center ---
   try {
-    const qrText = [
-      `Player ID: ${player.playerId || ''}`,
-      `Name: ${player.firstName || ''} ${player.lastName || ''}`,
-      `DOB: ${player.dateOfBirth ? formatDate(player.dateOfBirth) : ''}`,
-      `Gender: ${player.gender || ''}`,
-      `Passport: ${player.passportNumber || ''}`,
-      `Primary Sport: ${player.primarySport || ''}`,
-      `Address: ${(player.address?.street || '')}, ${(player.address?.city || '')}, ${(player.address?.state || '')}, ${(player.address?.postalCode || '')}`,
-      `Coach: ${player.coachName || ''}`,
-      `Coach Contact: ${player.coachContact || ''}`,
-      `Emergency: ${player.emergencyContact?.name || ''} (${player.emergencyContact?.phone || ''})`
-    ].join('\n');
-    const qrImageDataUrl = await QRCode.toDataURL(qrText, {
-      margin: 1,
-      width: 140,
-      errorCorrectionLevel: 'M'
-    });
-    // Place QR code at right side of back ID
-    const qrX = 470, qrY = 160;
-    doc.image(Buffer.from(qrImageDataUrl.split(",")[1], 'base64'), qrX, qrY, {
-      width: 140,
-      height: 140
-    });
-    // Add label below QR code
-    doc.font('Helvetica-Bold').fontSize(12).fill('#000080')
-      .text('Scan for player details', qrX, qrY + 145, {
-        width: 140,
-        align: 'center'
-      });
-  } catch (e) {
-    console.error('QR code generation error:', e);
-    // Fallback: Just show player ID in QR code if full details fail
-    const qrImageDataUrl = await QRCode.toDataURL(`Player ID: ${player.playerId}`, {
-      margin: 1,
-      width: 140
-    });
-    doc.image(Buffer.from(qrImageDataUrl.split(",")[1], 'base64'), 470, 160, {
-      width: 140,
-      height: 140
-    });
-  }
-
-  // Player ID number above Gujarati footer, centered (back side)
-  const playerIdText = player.playerId || 'PS000000';
-  // Add spaces between characters for better readability
-  const spacedPlayerId = playerIdText.split('').join(' ');
-  
-  doc.font('Helvetica-Bold').fontSize(30).fill('#000000')
-    .text(spacedPlayerId, 0, 320, { width: 650, align: 'center' });
-
-  // Footer text with gradient and Gujarati font (bolder)
-  const footerGradient = doc.linearGradient(0, 370, 650, 400);
-  footerGradient.stop(0, '#FF8C00'); // Orange
-  footerGradient.stop(1, '#000080'); // Dark blue
-  try {
-    if (unicodeFontAvailable) {
-      doc.font('Unicode').fontSize(32).fill(footerGradient)
-          .text('મારી ડિજિટલ ઓળખ', 0, 350, { width: 650, align: 'center' });
-    } else {
-      doc.font('Helvetica').fontSize(32).fill(footerGradient)
-        .text('મારી ડિજિટલ ઓળખ', 0, 350, { width: 650, align: 'center' });
+    if (fs.existsSync(GRADITEXT_PATH)) {
+      const graditextWidth = 460;
+    //   const graditextX = (CARD_W - graditextWidth) / 2;
+    //   const graditextY = CARD_H - 80; // 80px from bottom
+      doc.image(GRADITEXT_PATH, 100, 280, {width: graditextWidth });
     }
-  } catch (e) { console.error('Unicode font rendering error:', e); }
-
-  // Add faded background logo (watermark) to back
-  try {
-    const bgLogoPath = path.join(__dirname, 'logo1.png');
-    if (fs.existsSync(bgLogoPath)) {
-      doc.save();
-      doc.opacity(0.10);
-      doc.image(bgLogoPath, 150, 80, { width: 350, align: 'center' });
-      doc.opacity(1);
-      doc.restore();
-    }
-  } catch (e) { /* ignore bg logo errors */ }
+  } catch {}
+  // --- Large spaced ID number ---
+  const spacedPlayerId = (player.playerId || '').split('').join(' ');
+  doc.fontSize(35).font('Helvetica-Bold').fill('#111111')
+    .text(spacedPlayerId, 0, 310, { align: 'center', width: CARD_W, height: 40 });
 }
 
-// Helper function to format dates
-const formatDate = (dateString) => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-GB'); // DD/MM/YYYY format
-};
-
-// Remove demo/test code below
-// const demoPlayer = { ... };
-// if (import.meta.url === `file://${process.argv[1]}`) { ... }
-// async function main() { ... }
-// main(); 
+function formatDate(dateString) {
+  try {
+    return new Date(dateString).toLocaleDateString('en-GB');
+  } catch {
+    return dateString;
+  }
+}

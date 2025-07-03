@@ -8,16 +8,16 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
+    "dev": "nodemon server.js",
     "build": "echo 'No build required for Node.js backend'",
     "test": "echo \"Error: no tests yet\" && exit 0",
     "start:prod": "NODE_ENV=production node --max-old-space-size=4096 server.js",
     "optimize": "node --optimize-for-size --max-old-space-size=4096 server.js",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "watch": "node auto-generate.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "pdfkit": "^0.13.0",
     "compression": "^1.8.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -28,7 +28,9 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.3",
     "multer": "^1.4.5-lts.1",
+    "node-fetch": "^3.3.2",
     "nodemailer": "^6.9.7",
+    "pdfkit": "^0.13.0",
     "qrcode": "^1.5.3",
     "winston": "^3.11.0"
   },

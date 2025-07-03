@@ -5,6 +5,7 @@ import { sendEmail } from '../utils/emailService.js';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { generateIdCard as generateIdCardPDF } from '../utils/idCardGenerator.js';
 
 const router = express.Router();
 
@@ -12,7 +13,17 @@ const router = express.Router();
 const otpStore = {};
 
 router.post('/generate', generateIdCard);
-router.get('/:id', getIdCard);
+
+// Fake ID card PDF generator for testing
+router.get('/fake', async (req, res) => {
+  try {
+    const pdfPath = await generateFakeIdCard();
+    res.json({ success: true, pdfPath });
+  } catch (err) {
+    console.error('Fake ID card PDF generation error:', err);
+    res.status(500).json({ error: 'Failed to generate fake ID card PDF' });
+  }
+});
 
 // Download ID card endpoint
 router.get('/download/:playerId', async (req, res) => {
@@ -123,5 +134,7 @@ router.post('/search', async (req, res) => {
     res.status(500).json({ error: 'Internal server error', details: err.message, stack: err.stack });
   }
 });
+
+router.get('/:id', getIdCard);
 
 export default router; 
