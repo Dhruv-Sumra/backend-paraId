@@ -24,6 +24,8 @@ import { errorHandler } from './middleware/errorHandler.js';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.set('trust proxy', 1); // trust first proxy
+
 // Security and performance middleware
 app.use(helmet({
   contentSecurityPolicy: false, // Disable for development
