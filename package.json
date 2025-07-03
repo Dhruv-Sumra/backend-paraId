@@ -17,7 +17,6 @@
     "watch": "node auto-generate.js"
   },
   "dependencies": {
-    "@vendia/serverless-express": "^4.12.6",
     "bcryptjs": "^2.4.3",
     "compression": "^1.8.0",
     "cors": "^2.8.5",
