@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Asset paths
-const IDCARDS_DIR = path.join(__dirname, '../idcards');
+const IDCARDS_DIR = '/tmp/idcards';
 const LOGO1_PATH = path.join(__dirname, 'logo1.png');
 const LOGO2_PATH = path.join(__dirname, 'logo2.png');
 const GRADITEXT_PATH = path.join(__dirname, 'graditext---.png');
