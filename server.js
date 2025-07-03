@@ -1,9 +1,9 @@
+// IMPORTANT: Set all environment variables (e.g., MONGODB_URI, SENDER_EMAIL, EMAIL_PASSWORD) in the Vercel dashboard under Project Settings > Environment Variables. Do NOT use .env or config.env files in production.
 // require('dotenv').config();
 // or, if using ES modules:
 // import dotenv from 'dotenv';
 // dotenv.config(path);
 console.log('DEBUG: MONGODB_URI from .env is:', process.env.MONGODB_URI);
-process.env.MONGODB_URI = 'mongodb+srv://gujaratparasports:paraSports07@parasports.sc63qgr.mongodb.net/?retryWrites=true&w=majority&appName=ParaSports';
 
 import express from 'express';
 import mongoose from 'mongoose';
@@ -64,6 +64,7 @@ app.use(express.urlencoded({
 // Serve static files with caching
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const filePath = path.join(__dirname, 'uploads', 'myfile.txt');
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   maxAge: '1d',
