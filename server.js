@@ -131,8 +131,11 @@ app.use((req, res) => {
   res.status(404).json({ success: false, error: 'Not found' });
 });
 
-// MongoDB Connection with optimized settings for 1500+ users
+// Remove or conditionally disable app.listen and server tuning for serverless
+let isConnected = false;
+
 const connectDB = async () => {
+  if (isConnected) return;
   try {
     const mongoURI = process.env.MONGODB_URI;
     if (!process.env.MONGODB_URI) {
@@ -140,10 +143,8 @@ const connectDB = async () => {
     } else {
       console.log('🌐 Using MongoDB URI from .env:', process.env.MONGODB_URI);
     }
-    
-    // Optimized connection settings for high load
     await mongoose.connect(mongoURI, {
-      maxPoolSize: 50, // Increased for 1500+ users
+      maxPoolSize: 50,
       minPoolSize: 10,
       serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 60000,
@@ -151,45 +152,29 @@ const connectDB = async () => {
       maxIdleTimeMS: 30000,
       retryWrites: true,
       w: 'majority',
-      readPreference: 'secondaryPreferred', // Read from secondary for better performance
+      readPreference: 'secondaryPreferred',
     });
-    
+    isConnected = true;
     console.log('✅ Connected to MongoDB successfully!');
-    
-    // Start server with optimized settings
-    const server = app.listen(PORT, () => {
-      console.log(`🚀 Server is running on port ${PORT}`);
-      console.log(`📊 Optimized for 1500+ concurrent users`);
-    });
-    
-    // Optional server tuning (you can keep or remove)
-    server.maxConnections = 1000;
-    server.keepAliveTimeout = 65000;
-    server.headersTimeout = 66000;
-    
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
   }
 };
 
-process.on('unhandledRejection', (err, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', err);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-  process.exit(1);
-});
-
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  mongoose.connection.close(() => {
-    console.log('MongoDB connection closed');
-    process.exit(0);
+// Only start the server if not in a serverless environment
+if (process.env.VERCEL !== '1') {
+  connectDB().then(() => {
+    const server = app.listen(PORT, () => {
+      console.log(`🚀 Server is running on port ${PORT}`);
+      console.log(`📊 Optimized for 1500+ concurrent users`);
+    });
+    server.maxConnections = 1000;
+    server.keepAliveTimeout = 65000;
+    server.headersTimeout = 66000;
   });
-});
-
-connectDB();
+} else {
+  connectDB();
+}
 
 export default app;
 
