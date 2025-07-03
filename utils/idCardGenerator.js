@@ -134,9 +134,11 @@ function drawFrontSide(doc, player, addressString) {
   doc.font(valueFont).fontSize(valueSize).fill(valueColor).text(player.dateOfBirth ? formatDate(player.dateOfBirth) : '', col2X + 75, y, { width: 90 });
   y += 28 + rowGap;
   // Passport Number
-  doc.font(labelFont).fontSize(labelSize).fill(labelColor).text('Passport Number:', col1X, y, { width: 130 });
-  doc.font(valueFont).fontSize(valueSize).fill(valueColor).text(player.passportNumber || '', col1X + 135, y, { width: 120 });
-  y += 28 + rowGap;
+  if (player.passportNumber && String(player.passportNumber).trim() !== '') {
+    doc.font(labelFont).fontSize(labelSize).fill(labelColor).text('Passport Number:', col1X, y, { width: 130 });
+    doc.font(valueFont).fontSize(valueSize).fill(valueColor).text(player.passportNumber, col1X + 135, y, { width: 120 });
+    y += 28 + rowGap;
+  }
   // Address (wider)
   doc.font(labelFont).fontSize(labelSize).fill(labelColor).text('Address:', col1X, y, { width: 90 });
   doc.font(valueFont).fontSize(valueSize).fill(valueColor).text(addressString, col1X + 95, y, { width: 350 });
