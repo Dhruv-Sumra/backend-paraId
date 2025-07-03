@@ -164,4 +164,9 @@ router.post('/search', async (req, res) => {
 });
 router.get('/:id', getIdCard);
 
-export default router; 
+export default router;
+
+const app = express();
+app.use((req, res) => {
+  res.status(404).json({ success: false, error: 'Not found' });
+}); 

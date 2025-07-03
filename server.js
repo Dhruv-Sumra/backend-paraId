@@ -118,6 +118,11 @@ app.get('/', (req, res) => {
 // Error handling middleware
 app.use(errorHandler);
 
+// Catch-all 404 handler (must be after all other routes)
+app.use((req, res) => {
+  res.status(404).json({ success: false, error: 'Not found' });
+});
+
 // MongoDB Connection with optimized settings for 1500+ users
 const connectDB = async () => {
   try {
