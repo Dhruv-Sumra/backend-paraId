@@ -64,7 +64,6 @@ app.use(express.urlencoded({
 // Serve static files with caching
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const filePath = path.join(__dirname, 'uploads', 'myfile.txt');
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   maxAge: '1d',
