@@ -107,39 +107,61 @@ router.post('/send-otp', async (req, res) => {
 router.post('/search', async (req, res) => {
   try {
     const { playerId, email, otp } = req.body;
-    if (!playerId || !email || !otp) return res.status(400).json({ error: 'Player ID, email, and OTP required' });
+    
+    // Validate input
+    if (!playerId || !email || !otp) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Player ID, email, and OTP are required' 
+      });
+    }
 
     // Verify OTP
     const otpEntry = otpStore[email];
     if (!otpEntry || otpEntry.otp !== otp) {
-      return res.status(401).json({ error: 'Invalid or expired OTP' });
+      return res.status(401).json({ 
+        success: false,
+        error: 'Invalid or expired OTP' 
+      });
     }
+
+    // Check expiration
     if (Date.now() > otpEntry.expiresAt) {
       delete otpStore[email];
-      return res.status(401).json({ error: 'OTP expired' });
+      return res.status(401).json({ 
+        success: false,
+        error: 'OTP expired' 
+      });
     }
-    // OTP is valid, remove it
-    delete otpStore[email];
 
-    let player;
-    try {
-      player = await Player.findOne({ playerId, email });
-    } catch (dbErr) {
-      console.error('Database error:', dbErr);
-      return res.status(500).json({ error: 'Database error', details: dbErr.message, stack: dbErr.stack });
+    // Find player
+    const player = await Player.findOne({ playerId, email }).lean();
+    if (!player) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Player not found' 
+      });
     }
-    if (!player) return res.status(404).json({ error: 'Player not found or email does not match' });
 
-    // Return all player details
-    res.json({
-      player: player
+    // Clean up sensitive data
+    delete player.__v;
+    delete player._id;
+
+    // Successful response
+    res.status(200).json({
+      success: true,
+      player
     });
+
   } catch (err) {
     console.error('Search error:', err);
-    res.status(500).json({ error: 'Internal server error', details: err.message, stack: err.stack });
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
-
 router.get('/:id', getIdCard);
 
 export default router; 
