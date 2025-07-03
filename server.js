@@ -123,6 +123,11 @@ app.get('/', (req, res) => {
   });
 });
 
+// Favicon handler to prevent 500 errors on /favicon.ico
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end(); // No Content
+});
+
 // Error handling middleware
 app.use(errorHandler);
 
