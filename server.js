@@ -13,7 +13,6 @@ import { fileURLToPath } from 'url';
 import compression from 'compression';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import fs from 'fs';
 
 // Import routes
 import playerRoutes from './routes/playerRoutes.js';
@@ -65,12 +64,6 @@ app.use(express.urlencoded({
 // Serve static files with caching
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   maxAge: '1d',

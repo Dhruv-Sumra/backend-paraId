@@ -72,29 +72,34 @@ router.get('/download/:playerId', async (req, res) => {
 
 // Send OTP endpoint
 router.post('/send-otp', async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ error: 'Email is required' });
-
-  // Check if email exists in any player
-  const player = await Player.findOne({ email });
-  if (!player) return res.status(404).json({ error: 'No player found with this email' });
-
-  // Generate OTP
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
-  otpStore[email] = { otp, expiresAt };
-
-  // Send OTP email
   try {
-    await sendEmail({
-      to: email,
-      subject: 'Your OTP for Para Sports ID Card Details',
-      text: `Your OTP is: ${otp}. It is valid for 5 minutes.`
-    });
-    res.json({ message: 'OTP sent to email' });
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    // Check if email exists in any player
+    const player = await Player.findOne({ email });
+    if (!player) return res.status(404).json({ error: 'No player found with this email' });
+
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+    otpStore[email] = { otp, expiresAt };
+
+    // Send OTP email
+    try {
+      await sendEmail({
+        to: email,
+        subject: 'Your OTP for Para Sports ID Card Details',
+        text: `Your OTP is: ${otp}. It is valid for 5 minutes.`
+      });
+      res.json({ message: 'OTP sent to email' });
+    } catch (err) {
+      console.error('Failed to send OTP email:', err);
+      res.status(500).json({ error: 'Failed to send OTP email', details: err.message });
+    }
   } catch (err) {
-    console.error('Failed to send OTP email:', err);
-    res.status(500).json({ error: 'Failed to send OTP email' });
+    console.error('Unexpected error in /send-otp:', err);
+    res.status(500).json({ error: 'Unexpected server error', details: err.message });
   }
 });
 
