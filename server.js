@@ -17,7 +17,8 @@ import fs from 'fs';
 
 // Import routes
 import playerRoutes from './routes/playerRoutes.js';
-import idcardRoutes from './routes/idcardRoutes.js';    
+import idcardRoutes from './routes/idcardRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js';
@@ -87,6 +88,7 @@ app.use('/idcards', express.static(path.join(__dirname, 'idcards'), {
 // Routes
 app.use('/api/players', playerRoutes);
 app.use('/api/idcards', idcardRoutes);
+app.use('/api/users', userRoutes);
 
 // Health check route with caching
 app.get('/api/health', (req, res) => {
@@ -118,7 +120,8 @@ app.get('/', (req, res) => {
       health: '/api/health',
       test: '/api/test',
       players: '/api/players',
-      idcards: '/api/idcards'
+      idcards: '/api/idcards',
+      users: '/api/users'
     }
   });
 });
@@ -136,50 +139,100 @@ app.use((req, res) => {
   res.status(404).json({ success: false, error: 'Not found' });
 });
 
-// Remove or conditionally disable app.listen and server tuning for serverless
+// Database connection for Render and other cloud platforms
 let isConnected = false;
+let isConnecting = false;
 
 const connectDB = async () => {
-  if (isConnected) return;
+  if (isConnected) return true;
+  if (isConnecting) {
+    // Wait for existing connection attempt
+    while (isConnecting) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    return isConnected;
+  }
+  
+  isConnecting = true;
   try {
     const mongoURI = process.env.MONGODB_URI;
-    if (!process.env.MONGODB_URI) {
-      console.warn('⚠️  MONGODB_URI not set in .env, using local MongoDB.');
-    } else {
-      console.log('🌐 Using MongoDB URI from .env:', process.env.MONGODB_URI);
+    if (!mongoURI) {
+      console.warn('⚠️  MONGODB_URI not set, cannot connect to database.');
+      throw new Error('MONGODB_URI not configured');
     }
-    await mongoose.connect(mongoURI, {
+    
+    console.log('🌐 Connecting to MongoDB...');
+    
+    // Optimized connection options for cloud deployment
+    const connectionOptions = {
       maxPoolSize: 50,
-      minPoolSize: 10,
-      serverSelectionTimeoutMS: 10000,
+      minPoolSize: 5,
+      serverSelectionTimeoutMS: 15000,
       socketTimeoutMS: 60000,
-      bufferCommands: false,
+      bufferCommands: true,
+      bufferMaxEntries: 0,
       maxIdleTimeMS: 30000,
       retryWrites: true,
       w: 'majority',
-      readPreference: 'secondaryPreferred',
-    });
+      readPreference: 'primary',
+    };
+    
+    await mongoose.connect(mongoURI, connectionOptions);
     isConnected = true;
     console.log('✅ Connected to MongoDB successfully!');
+    return true;
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
+    isConnected = false;
+    throw error;
+  } finally {
+    isConnecting = false;
   }
 };
 
-// Only start the server if not in a serverless environment
-if (process.env.VERCEL !== '1') {
-  connectDB().then(() => {
-    const server = app.listen(PORT, () => {
-      console.log(`🚀 Server is running on port ${PORT}`);
-      console.log(`📊 Optimized for 1500+ concurrent users`);
+// Middleware to ensure database connection
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error('Database connection failed for request:', req.path, error.message);
+    return res.status(503).json({ 
+      success: false, 
+      error: 'Database connection failed',
+      message: 'Please try again later'
     });
+  }
+});
+
+// Start server
+connectDB()
+  .then(() => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server is running on port ${PORT}`);
+      console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`📊 Optimized for cloud deployment`);
+    });
+    
+    // Optimized server settings
     server.maxConnections = 1000;
     server.keepAliveTimeout = 65000;
     server.headersTimeout = 66000;
+    
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('🔄 SIGTERM received, shutting down gracefully');
+      server.close(() => {
+        console.log('✅ Process terminated');
+        mongoose.connection.close();
+        process.exit(0);
+      });
+    });
+  })
+  .catch(error => {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
   });
-} else {
-  connectDB();
-}
 
 export default app;
 

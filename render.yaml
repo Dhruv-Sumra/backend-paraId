@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: para-sports-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        fromDatabase:
+          name: para-sports-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://frontend-para-id.onrender.com
+    healthCheckPath: /api/health
