@@ -51,12 +51,23 @@ export const sendIdCardEmail = async (player, idCardPath) => {
       return { messageId: 'email-not-configured' };
     }
     
-    // Full path to ID card
-    const fullIdCardPath = path.join(__dirname, '..', idCardPath);
+    // Full path to ID card - handle both relative and absolute paths
+    let fullIdCardPath;
+    if (idCardPath.startsWith('/idcards/')) {
+      // If it's a relative path from idCardGenerator, convert to absolute path in /tmp
+      const filename = idCardPath.replace('/idcards/', '');
+      fullIdCardPath = path.join('/tmp/idcards', filename);
+    } else if (path.isAbsolute(idCardPath)) {
+      fullIdCardPath = idCardPath;
+    } else {
+      fullIdCardPath = path.join(__dirname, '..', idCardPath);
+    }
     
     // Check if ID card file exists
     if (!fs.existsSync(fullIdCardPath)) {
-      throw new Error('ID card file not found');
+      console.error('ID card file not found at:', fullIdCardPath);
+      console.error('Original idCardPath:', idCardPath);
+      throw new Error(`ID card file not found at ${fullIdCardPath}`);
     }
     
     // Get email configuration
