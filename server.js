@@ -85,6 +85,71 @@ app.use('/idcards', express.static(path.join(__dirname, 'idcards'), {
   lastModified: true
 }));
 
+// Database connection for Render and other cloud platforms
+let isConnected = false;
+let isConnecting = false;
+
+const connectDB = async () => {
+  if (isConnected) return true;
+  if (isConnecting) {
+    // Wait for existing connection attempt
+    while (isConnecting) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    return isConnected;
+  }
+  
+  isConnecting = true;
+  try {
+    const mongoURI = process.env.MONGODB_URI;
+    if (!mongoURI) {
+      console.warn('⚠️  MONGODB_URI not set, cannot connect to database.');
+      throw new Error('MONGODB_URI not configured');
+    }
+    
+    console.log('🌐 Connecting to MongoDB...');
+    
+    // Optimized connection options for cloud deployment
+    const connectionOptions = {
+      maxPoolSize: 50,
+      minPoolSize: 5,
+      serverSelectionTimeoutMS: 15000,
+      socketTimeoutMS: 60000,
+      bufferCommands: false, // Changed to false to prevent the error
+      maxIdleTimeMS: 30000,
+      retryWrites: true,
+      w: 'majority',
+      readPreference: 'primary',
+    };
+    
+    await mongoose.connect(mongoURI, connectionOptions);
+    isConnected = true;
+    console.log('✅ Connected to MongoDB successfully!');
+    return true;
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error.message);
+    isConnected = false;
+    throw error;
+  } finally {
+    isConnecting = false;
+  }
+};
+
+// Middleware to ensure database connection - MOVED BEFORE ROUTES
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error('Database connection failed for request:', req.path, error.message);
+    return res.status(503).json({ 
+      success: false, 
+      error: 'Database connection failed',
+      message: 'Please try again later'
+    });
+  }
+});
+
 // Routes
 app.use('/api/players', playerRoutes);
 app.use('/api/idcards', idcardRoutes);
@@ -137,71 +202,6 @@ app.use(errorHandler);
 // Catch-all 404 handler (must be after all other routes)
 app.use((req, res) => {
   res.status(404).json({ success: false, error: 'Not found' });
-});
-
-// Database connection for Render and other cloud platforms
-let isConnected = false;
-let isConnecting = false;
-
-const connectDB = async () => {
-  if (isConnected) return true;
-  if (isConnecting) {
-    // Wait for existing connection attempt
-    while (isConnecting) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    return isConnected;
-  }
-  
-  isConnecting = true;
-  try {
-    const mongoURI = process.env.MONGODB_URI;
-    if (!mongoURI) {
-      console.warn('⚠️  MONGODB_URI not set, cannot connect to database.');
-      throw new Error('MONGODB_URI not configured');
-    }
-    
-    console.log('🌐 Connecting to MongoDB...');
-    
-    // Optimized connection options for cloud deployment
-    const connectionOptions = {
-      maxPoolSize: 50,
-      minPoolSize: 5,
-      serverSelectionTimeoutMS: 15000,
-      socketTimeoutMS: 60000,
-      bufferCommands: true,
-      maxIdleTimeMS: 30000,
-      retryWrites: true,
-      w: 'majority',
-      readPreference: 'primary',
-    };
-    
-    await mongoose.connect(mongoURI, connectionOptions);
-    isConnected = true;
-    console.log('✅ Connected to MongoDB successfully!');
-    return true;
-  } catch (error) {
-    console.error('❌ MongoDB connection error:', error.message);
-    isConnected = false;
-    throw error;
-  } finally {
-    isConnecting = false;
-  }
-};
-
-// Middleware to ensure database connection
-app.use(async (req, res, next) => {
-  try {
-    await connectDB();
-    next();
-  } catch (error) {
-    console.error('Database connection failed for request:', req.path, error.message);
-    return res.status(503).json({ 
-      success: false, 
-      error: 'Database connection failed',
-      message: 'Please try again later'
-    });
-  }
 });
 
 // Start server
